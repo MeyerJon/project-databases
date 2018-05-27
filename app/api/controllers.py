@@ -1,3 +1,5 @@
+"""API Routes
+"""
 from functools import wraps
 
 from flask import abort, Blueprint, jsonify, request, send_from_directory, flash
@@ -15,6 +17,8 @@ _history = History()
 
 
 def auth_required(f):
+    """Authorizes received request
+    """
     @wraps(f)
     def wrapper(*args, **kwargs):
         auth = request.authorization
@@ -36,6 +40,23 @@ def auth_required(f):
 @api.route('/api/datasets/<int:dataset_id>/tables/<string:table_name>', methods=['GET'])
 @auth_required
 def get_table(dataset_id, table_name):
+    """Fethces table contents for DataTables.
+
+    Args:
+        dataset_id (int): The id of the dataset where the table is.
+        table_name (str): The name of the table to be fetched.
+    
+    Request Args:
+        start (int): The row number from which the requested data should start.
+        length (int): The amount of rows the requested data should contain.
+        order[0][column] (int): The index of column on which to order the data
+        order[i][data] (str): The name of the column on which to order the data. `i` should equal `order[0][column]
+        order[0][dir] (str): The direction in which to order the data, should be `asc` or `desc`
+        search[value] (str): The search term for the data
+
+    Returns:
+        A Flask Response object that contains a JSONified version of the fetched table or a 403 if the authentication failed.
+    """
     if (data_loader.has_access(current_user.username, dataset_id)) is False:
         return abort(403)
     active_user_handler.make_user_active_in_table(dataset_id, table_name, current_user.username)
@@ -65,6 +86,23 @@ def get_table(dataset_id, table_name):
 @api.route('/api/datasets/<int:dataset_id>/tables/<string:table_name>/history', methods=['GET'])
 @auth_required
 def get_history(dataset_id, table_name):
+    """Fethces history contents of table for DataTables.
+
+    Args:
+        dataset_id (int): The id of the dataset where the table is.
+        table_name (str): The name of the table whose history will be fetched.
+    
+    Request args:
+        start (int): The row number from which the requested data should start.
+        length (int): The amount of rows the requested data should contain.
+        order[0][column] (int): The index of column on which to order the data
+        order[i][data] (str): The name of the column on which to order the data. `i` should equal `order[0][column]
+        order[0][dir] (str): The direction in which to order the data, should be `asc` or `desc`
+        search[value] (str): The search term for the data
+
+    Returns:
+        A Flask Response object that contains a JSONified version of the fetched table or a 403 if the authentication failed.
+    """
     if (data_loader.has_access(current_user.username, dataset_id)) is False:
         return abort(403)
     active_user_handler.make_user_active_in_table(dataset_id, table_name, current_user.username)
@@ -87,6 +125,17 @@ def get_history(dataset_id, table_name):
 @api.route('/api/datasets/<int:dataset_id>/tables/<string:table_name>/history/undo/<int:action_id>', methods=['POST'])
 @auth_required
 def undo_action(dataset_id, table_name, action_id):
+    """Undoes action.
+
+    Args:
+        dataset_id (int): The id of the dataset where the table is.
+        table_name (str): The name of the table whose action will be undone.
+        action_id (int): The id of the action that will be undone.
+
+    Returns:
+        A Flask Response object telling the caller that the action succeeded or failed or a 403 if the authentication failed.
+
+    """
     if not data_loader.has_access(current_user.username, dataset_id):
         return abort(403)
     active_user_handler.make_user_active_in_table(dataset_id, table_name, current_user.username)
@@ -102,6 +151,17 @@ def undo_action(dataset_id, table_name, action_id):
 @api.route('/api/datasets/<int:dataset_id>/tables/<string:table_name>/rows', methods=['POST'])
 @auth_required
 def add_row(dataset_id, table_name):
+    """Adds a row to the requested table.
+    Args:
+        dataset_id (int): The id of the dataset where the table is.
+        table_name (str): The name of the table where the row will be inserted.
+
+    Request Args:
+        value-col-[name] (any): The value the new row should have in column <name>
+
+    Returns:
+        A flask Response object telling the caller that the action succeeded or failed or a 403 if the authentication failed.
+    """
     if (data_loader.has_access(current_user.username, dataset_id)) is False:
         return abort(403)
     try:
@@ -124,6 +184,15 @@ def add_row(dataset_id, table_name):
 @api.route('/api/datasets/<int:dataset_id>/tables/<string:table_name>/rows', methods=['DELETE'])
 @auth_required
 def delete_row(dataset_id, table_name):
+    """Deletes a row from the requested table.
+    Args:
+        dataset_id (int): The id of the dataset where the table is.
+        table_name (str): The name of the table where the row will be deleted.
+    Request Args:
+        row-id ([int]): The id(s) of the row(s) that will be dropped. The value of the arguments doesn't matter as long as they have the id the name.
+    Returns:
+        A flask Response object telling the caller that the action succeeded or failed or a 403 if the authentication failed.
+    """
     if (data_loader.has_access(current_user.username, dataset_id)) is False:
         return abort(403)
     try:
@@ -140,6 +209,16 @@ def delete_row(dataset_id, table_name):
 @api.route('/api/datasets/<int:dataset_id>/tables/<string:table_name>/columns', methods=['POST'])
 @auth_required
 def add_column(dataset_id, table_name):
+    """Adds a column to the requested table.
+    Args:
+        dataset_id (int): The id of the dataset where the table is.
+        table_name (str): The name of the table where the column will be added.
+    Request Args:
+        col-name (str): The name of the new column.
+        col-type (str): The (PostgreSQL) type of the new column. Current types are supported; INTEGER, TEXT, BIT, TIMESTAMP.
+    Returns:
+        A flask Response object telling the caller that the action succeeded or failed or a 403 if the authentication failed.
+    """
     if (data_loader.has_access(current_user.username, dataset_id)) is False:
         return abort(403)
     try:
@@ -157,6 +236,16 @@ def add_column(dataset_id, table_name):
 @api.route('/api/datasets/<int:dataset_id>/tables/<string:table_name>/columns', methods=['PUT'])
 @auth_required
 def update_column(dataset_id, table_name):
+    """Updates the type of the requested column.
+    Args:
+        dataset_id (int): The id of the dataset where the table is.
+        table_name (str): The name of the table where the column will be updated.
+    Request Args:
+        col-name (str): The name of the column that will be updated.
+        col-type (str): The new (PostgreSQL) type of the column. Current types are supported; INTEGER, TEXT, BIT, TIMESTAMP.
+    Returns:
+        A flask Response object telling the caller that the action succeeded or failed or a 403 if the authentication failed.
+    """
     if (data_loader.has_access(current_user.username, dataset_id)) is False:
         return abort(403)
     try:
@@ -174,6 +263,15 @@ def update_column(dataset_id, table_name):
 @api.route('/api/datasets/<int:dataset_id>/tables/<string:table_name>/columns', methods=['DELETE'])
 @auth_required
 def delete_column(dataset_id, table_name):
+    """Deletes the requested column.
+    Args:
+        dataset_id (int): The id of the dataset where the table is.
+        table_name (str): The name of the table where the column will be deleted.
+    Request Args:
+        col-name (str): The name of the column that will be deleted.
+    Returns:
+        A flask Response object telling the caller that the action succeeded or failed or a 403 if the authentication failed.
+    """
     if (data_loader.has_access(current_user.username, dataset_id)) is False:
         return abort(403)
     try:
@@ -190,6 +288,23 @@ def delete_column(dataset_id, table_name):
 @api.route('/api/datasets/<int:dataset_id>/tables/<string:table_name>/date-time-transformations', methods=['PUT'])
 @auth_required
 def transform_date_or_time(dataset_id, table_name):
+    """Extracts part of timestamp.
+    Args:
+        dataset_id (int): The id of the dataset where the table is.
+        table_name (str): The name of the table where the timestamp extraction will occur.
+    Request Args:
+        col-name (str): The name of the column on which the timestamp extraction will take place.
+        operation-name (str):
+            The operation that will be applied to the requested column.
+            Possible values are:
+                - extract day of week
+                - extract month
+                - extract year
+                - extract date
+                - extract time
+    Returns:
+        A flask Response object telling the caller that the action succeeded or failed or a 403 if the authentication failed.
+    """
     if (data_loader.has_access(current_user.username, dataset_id)) is False:
         return abort(403)
     try:
@@ -207,6 +322,14 @@ def transform_date_or_time(dataset_id, table_name):
 @api.route('/api/datasets/update-dataset-metadata', methods=['PUT'])
 @auth_required
 def update_dataset_metadata():
+    """Updates the metadata of the requested dataset.
+    Request Args:
+        ds-id (int): The id of the dataset whose metadata will be updated.
+        ds-name (str): The new name for the requested dataset.
+        ds-desc (str): The new description for the requested dataset.
+    Returns:
+        A flask Response object telling the caller that the action succeeded or failed or a 403 if the authentication failed.
+    """
     try:
         dataset_id = request.args.get('ds-id')
         new_name = request.args.get('ds-name')
@@ -224,6 +347,16 @@ def update_dataset_metadata():
 @api.route('/api/datasets/<int:dataset_id>/update-metadata', methods=['PUT'])
 @auth_required
 def update_table_metadata(dataset_id):
+    """Updates the metadata of the requested table.
+    Args:
+        dataset_id (int): The dataset where the to-be-updated table is.
+    Request Args:
+        t-old-name (str): The id of the dataset where the table is.
+        t-name (str): The new name for the requested table.
+        t-desc (str): The new description for the requested table.
+    Returns:
+        A flask Response object telling the caller that the action succeeded or failed or a 403 if the authentication failed.
+    """
     if (data_loader.has_access(current_user.username, dataset_id)) is False:
         return abort(403)
     try:
@@ -242,6 +375,23 @@ def update_table_metadata(dataset_id):
 @api.route('/api/datasets/<int:dataset_id>/tables/<string:table_name>/impute-missing-data', methods=['PUT'])
 @auth_required
 def impute_missing_data(dataset_id, table_name):
+    """Fills the missing data of the requested column.
+    Args:
+        dataset_id (int): The dataset where the requested table is.
+        table_name (str): The name of the table containing the to-be-filled column.
+    Request Args:
+        col-name (str): The name of the to-be-filled column.
+        function (str):
+            The function used to fill the empty values.
+            Supported arguments are:
+                - AVG
+                - MEDIAN
+                - MCV (most common value)
+                - CUSTOM
+        cutom-value (any): The value used to fill the requested column if function CUSTOM is chosen
+    Returns:
+        A flask Response object telling the caller that the action succeeded or failed or a 403 if the authentication failed.
+    """
     if (data_loader.has_access(current_user.username, dataset_id)) is False:
         return abort(403)
     try:
